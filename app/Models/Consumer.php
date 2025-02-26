@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Elastic\Elasticsearch\ClientBuilder;
-use Laravel\Scout\Searchable;
+use Elasticsearch\ClientBuilder;
 
 
 class Consumer extends Model
 {
-    use HasFactory, Searchable;
+    use HasFactory;
 
     protected $table = 'consumers';
 
@@ -33,7 +32,9 @@ class Consumer extends Model
     {
         return [
             "reference_no" => 'keyword',
+            "bill_month" => 'keyword',
             "name" => 'text',
+            "fname" => 'text',
             "address_1" => 'text',
             "address_2" => 'text',
             "corporation_name" => 'text',
@@ -45,31 +46,20 @@ class Consumer extends Model
             "extra_tax_exempt_code" => 'keyword',
             "meter_rent" => 'keyword',
             "service_rent" => 'keyword',
+            "meter_phase" => 'keyword',
+            "feeder_code" => 'keyword',
             "feeder_name" => 'text',
             "transformer_code" => 'keyword',
-            "tranformer_address" => 'text',
-            "nicno" => 'keyword',
-            "emailaddr" => 'keyword',
-            "contactno" => 'keyword',
-            "kwh_meter_defective_age" => 'keyword',
-            "total_deffered_amount" => 'keyword',
-            "total_installemnt" => 'keyword',
-            "remaining_installment" => 'keyword',
-            "last_disconnection_date" => 'keyword',
-            "last_reconnection_date" => 'keyword',
-            "last_defective_date" => 'keyword',
-            "last_replacement_date" => 'keyword',
-            "defective_times" => 'keyword',
-            "replacement_times" => 'keyword',
-            "defective_remaning_times" => 'keyword',
-            "agriculture_motor_code" => 'keyword',
-            "tv_exempt_code" => 'keyword',
-            "uniqkey" => 'keyword',
-            "old_reference_no" => 'keyword',
-            "old_reference_change_date" => 'keyword',
-            "gps_longitude" => 'keyword',
-            "gps_latitude" => 'keyword',
-            "sub_batch" => 'keyword',
+            "tranformer_address" => [
+                'type' => 'text',
+                'fields' => [
+                    'raw' => [
+                        'type' => 'keyword',
+                        'ignore_above' => 256,
+                    ]
+                ]
+            ],
+            "sub_batch" => 'keyword',  // Fixed line
             "tariff" => 'keyword',
             "sanction_load" => 'keyword',
             "connected_load" => 'keyword',
@@ -81,6 +71,7 @@ class Consumer extends Model
             "occupant_nicno" => 'keyword',
         ];
     }
+    
 
     public function indexSettings(): array
     {
@@ -94,20 +85,24 @@ class Consumer extends Model
 
     public function getElasticsearchClient()
     {
-        return ClientBuilder::create()->setHosts(config('services.elasticsearch.hosts'))->build();
+        return ClientBuilder::create()->build();
     }
 
-    public function indexDocument()
+    public function createIndexWithMappings()
     {
         $client = $this->getElasticsearchClient();
         $params = [
             'index' => 'consumers',
-            'id' => $this->id,
-            'body' => $this->toArray(),
+            'body'  => [
+                'mappings' => [
+                    'properties' => $this->mappableAs(),
+                ],
+                'settings' => $this->indexSettings(),
+            ],
         ];
-
-        return $client->index($params);
+        return $client->indices()->create($params);
     }
+    
 
     public static function searchDocument($query)
     {
