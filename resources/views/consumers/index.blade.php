@@ -96,7 +96,7 @@
                                         'name' => request('name'), 
                                         'contactno' => request('contactno'), 
                                         'reference_no' => request('reference_no'), 
-                                        'cnic' => request('cnic')
+                                        'occupant_nicno' => request('occupant_nicno')
                                     ]) }}" class="btn btn-link">
                                     {{ $i }}
                                 </a>
