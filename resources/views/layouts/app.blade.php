@@ -40,8 +40,8 @@
 
     <div class="sidebar">
         <h4>Menu</h4>
-        <a href="{{ route('consumers.search') }}">Search Consumers</a>
         <a href="{{ route('consumers.index') }}">Consumers</a>
+        <a href="{{ route('consumers.search') }}">Search Consumers</a>
         <a href="{{ route('logout') }}" class="btn btn-danger mt-3">Logout</a>
     </div>
 
