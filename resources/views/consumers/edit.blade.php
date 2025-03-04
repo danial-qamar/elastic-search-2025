@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Consumers</title>
+    <title>Edit Consumer</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -21,23 +21,27 @@
         <form action="{{ route('consumers.update', $consumer->id) }}" method="POST">
             @csrf
             @method('PUT')
-            
-            <div class="form-group">
-                <label for="name">Name</label>
-                <input type="text" class="form-control" id="name" name="name" value="{{ old('name', $consumer->name) }}" required>
+            <div class="row">
+                @foreach ($columns as $index => $column)
+                    @if ($index % 3 == 0 && $index != 0)
+                        </div><div class="row">
+                    @endif
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="{{ $column }}">{{ ucwords(str_replace('_', ' ', $column)) }}</label>
+                            <input type="text" class="form-control @error($column) is-invalid @enderror" id="{{ $column }}" name="{{ $column }}" 
+                                   value="{{ old($column, $consumer->$column) }}">
+                            @error($column)
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                @endforeach
             </div>
-    
-            <div class="form-group">
-                <label for="contactno">Contact No</label>
-                <input type="text" class="form-control" id="contactno" name="contactno" value="{{ old('contactno', $consumer->contactno) }}" required>
+            <div class="text-right">
+                <button type="submit" class="btn btn-primary">Update Consumer</button>
+                <a href="{{ route('consumers.index') }}" class="btn btn-secondary">Cancel</a>
             </div>
-    
-            <div class="form-group">
-                <label for="reference_no">Reference No</label>
-                <input type="text" class="form-control" id="reference_no" name="reference_no" value="{{ old('reference_no', $consumer->reference_no) }}" required>
-            </div>
-    
-            <button type="submit" class="btn btn-primary">Update Consumer</button>
         </form>
     </div>
 </body>

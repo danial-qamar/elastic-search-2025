@@ -26,24 +26,32 @@
             <div class="card-body">
                 <form action="{{ route('consumers.store') }}" method="POST">
                     @csrf
-                    <div class="form-group">
-                        <label for="name">Name</label>
-                        <input type="text" class="form-control" id="name" name="name" placeholder="Enter Name" value="{{ old('name') }}">
+
+                    <div class="row">
+                        @foreach ($columns as $index => $column)
+                            @if ($index % 3 == 0 && $index != 0)
+                                </div><div class="row">
+                            @endif
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ $column }}">{{ ucwords(str_replace('_', ' ', $column)) }}</label>
+                                    <input type="text" class="form-control @error($column) is-invalid @enderror" 
+                                           id="{{ $column }}" name="{{ $column }}" 
+                                           placeholder="Enter {{ ucwords(str_replace('_', ' ', $column)) }}"
+                                           value="{{ old($column) }}">
+                                           
+                                    @error($column)
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="form-group">
-                        <label for="contactno">Contact No</label>
-                        <input type="number" class="form-control" id="contactno" name="contactno" placeholder="Enter Contact No" value="{{ old('contactno') }}">
+
+                    <div class="text-right">
+                        <button type="submit" class="btn btn-success">Save Consumer</button>
+                        <a href="{{ route('consumers.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
-                    <div class="form-group">
-                        <label for="reference_no">Reference No</label>
-                        <input type="number" class="form-control" id="reference_no" name="reference_no" placeholder="Enter Reference No" value="{{ old('reference_no') }}">
-                    </div>
-                    <div class="form-group">
-                        <label for="cnic">CNIC</label>
-                        <input type="number" class="form-control" id="occupant_nicno" name="occupant_nicno" placeholder="Enter CNIC" value="{{ old('occupant_nicno') }}">
-                    </div>
-                    <button type="submit" class="btn btn-success">Add Consumer</button>
-                    <a href="{{ route('consumers.index') }}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>

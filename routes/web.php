@@ -18,11 +18,19 @@ use App\Http\Controllers\ConsumerController;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/login', function () {
+    return view('login');
+})->name('login');
 
-Route::get('/consumers', [ConsumerController::class, 'index'])->name('consumers.index');
-Route::get('/consumers/create', [ConsumerController::class, 'create'])->name('consumers.create');
-Route::post('/consumers', [ConsumerController::class, 'store'])->name('consumers.store');
-Route::get('/consumers/{id}/edit', [ConsumerController::class, 'edit'])->name('consumers.edit');
-Route::put('/consumers/{id}', [ConsumerController::class, 'update'])->name('consumers.update');
-Route::delete('/consumers/{id}', [ConsumerController::class, 'destroy'])->name('consumers.destroy');
-Route::get('/consumers/search', [ConsumerController::class, 'search'])->name('consumers.search');
+Route::post('/login', [ConsumerController::class, 'login'])->name('loggedIn');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/consumers', [ConsumerController::class, 'index'])->name('consumers.index');
+    Route::get('/consumers/create', [ConsumerController::class, 'create'])->name('consumers.create');
+    Route::post('/consumers', [ConsumerController::class, 'store'])->name('consumers.store');
+    Route::get('/consumers/{id}/edit', [ConsumerController::class, 'edit'])->name('consumers.edit');
+    Route::put('/consumers/{id}', [ConsumerController::class, 'update'])->name('consumers.update');
+    Route::delete('/consumers/{id}', [ConsumerController::class, 'destroy'])->name('consumers.destroy');
+    Route::get('/consumers/search', [ConsumerController::class, 'searchPage'])->name('consumers.search');
+    Route::get('/logout', [ConsumerController::class, 'logout'])->name('logout');
+});
