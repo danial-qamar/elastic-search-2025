@@ -32,5 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/consumers/{id}', [ConsumerController::class, 'update'])->name('consumers.update');
     Route::delete('/consumers/{id}', [ConsumerController::class, 'destroy'])->name('consumers.destroy');
     Route::get('/consumers/search', [ConsumerController::class, 'searchPage'])->name('consumers.search');
+    Route::post('/consumers/import', [ConsumerController::class, 'import'])->name('consumers.import');
+    Route::get('/consumers/import-summary/{id}', [ConsumerController::class, 'importSummary'])->name('consumers.import.summary');
     Route::get('/logout', [ConsumerController::class, 'logout'])->name('logout');
 });

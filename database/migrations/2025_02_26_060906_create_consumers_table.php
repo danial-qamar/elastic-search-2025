@@ -88,7 +88,6 @@ return new class extends Migration
             $table->string('govt_department_code', 100)->nullable();
             $table->string('electricity_duty_code', 100)->nullable();
             $table->string('occupant_nicno', 100)->nullable();
-            $table->string('application_no', 100)->nullable();
             
 
             $table->timestamps();

@@ -15,12 +15,12 @@ class BulkDataUpdate extends Command
 
     public function handle()
     {
-        $filepath = storage_path('app/data-import');
+        $filepath = storage_path('app/data-import/newPescoTesting');
         Log::info("Import started from: $filepath");
 
         $subdivisions = DB::table('subdivision')->get();
         $divisionMap = [
-            'local' => ['11' => 'FESCO', '13' => 'FESCO'],
+            'local' => ['27' => 'PESCO', '26' => 'PESCO'],
             'production' => [
                 '11' => 'LESCO', '12' => 'GEPCO', '13' => 'FESCO', '14' => 'IESCO', '15' => 'MEPCO',
                 '26' => 'PESCO', '37' => 'HESCO', '38' => 'SEPCO', '48' => 'QESCO', '59' => 'TESCO'
@@ -43,6 +43,8 @@ class BulkDataUpdate extends Command
             $filePath = "$filepath/$fileName";
 
             if (!File::exists($filePath)) {
+                Log::warning("Missing file: $filePath");
+                Log::debug("Looking for: $fileName in $filepath");
                 continue;
             }
 

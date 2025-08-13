@@ -8,7 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Log;
 use Elasticsearch\ClientBuilder;
 
 class ProcessCsvFile implements ShouldQueue
@@ -25,16 +25,15 @@ class ProcessCsvFile implements ShouldQueue
     public function handle()
     {
         $startTime = microtime(true);
-        // Log::info("Processing file: {$this->filePath}");
 
         if (!file_exists($this->filePath)) {
-            // Log::error("File not found: {$this->filePath}");
+            Log::error("File not found: {$this->filePath}");
             return;
         }
 
         $handle = fopen($this->filePath, 'r');
         if (!$handle) {
-            // Log::error("Failed to open file: {$this->filePath}");
+            Log::error("Failed to open file: {$this->filePath}");
             return;
         }
 
@@ -52,49 +51,62 @@ class ProcessCsvFile implements ShouldQueue
             'old_reference_change_date', 'gps_longitude', 'gps_latitude', 'sub_batch', 'tariff', 'sanction_load', 'connected_load',
             'rural_uraban_code', 'standard_classification_code', 'total_kwh_meter', 'govt_department_code', 'electricity_duty_code', 'occupant_nicno'
         ];
-        while (($row = fgetcsv($handle)) !== false) {
 
-            if (count($row) > 74) {
-                $row = array_slice($row, 0, 74); 
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count($row) > count($columns)) {
+                $row = array_slice($row, 0, count($columns));
             }
 
             $data = array_combine($columns, $row);
 
+            // Clean inputs
             $data['reference_no'] = trim(preg_replace('/[^A-Z0-9]/', '', $data['reference_no']));
             $data['occupant_nicno'] = trim(preg_replace('/[^A-Z0-9]/', '', $data['occupant_nicno']));
             $data['contactno'] = trim(preg_replace('/[^A-Z0-9]/', '', $data['contactno']));
 
-            // $existing = DB::table('consumers')->where('reference_no', $data['reference_no'])->first();
-
+            // Get existing record with ID
             $existing = DB::table('consumers')
                 ->where('reference_no', $data['reference_no'])
-                ->select($columns)
                 ->first();
 
             if ($existing) {
-                $differences = array_diff_assoc((array) $existing, $data);
-                // Log::info(json_encode($existing, JSON_PRETTY_PRINT));
-                // Log::info(json_encode($data, JSON_PRETTY_PRINT));
-                // Log::info(json_encode($differences, JSON_PRETTY_PRINT));
+                $existingArray = (array) $existing;
+
+                // Remove fields that are not in $data before comparison
+                unset($existingArray['id'], $existingArray['created_at'], $existingArray['updated_at']);
+
+                $differences = array_diff_assoc($existingArray, $data);
+                Log::info('EXISTING:', $existingArray);
+                Log::info('NEW DATA:', $data);
+                Log::info("Differences found:\n" . json_encode($differences, JSON_PRETTY_PRINT));
                 if (!empty($differences)) {
-                    DB::table('consumers')->where('reference_no', $data['reference_no'])->update($data);
-                    $consumer = DB::table('consumers')->where('id', $existing->id)->first();
-                    $this->updateElasticSearch($existing->id, (array) $consumer);
-                    // Log::info("Updated record: {$data['reference_no']}");
+                    // Update DB
+                    DB::table('consumers')
+                        ->where('id', $existing->id)
+                        ->update($data);
+
+                    // Fetch updated record and update ES
+                    $updatedConsumer = DB::table('consumers')->find($existing->id);
+                    $this->updateElasticSearch($existing->id, (array) $updatedConsumer);
+
+                    Log::info("Updated record: {$data['reference_no']}");
                 } else {
-                    // Log::info("Ignoring duplicate record: {$data['reference_no']}");
+                    Log::info("No changes for: {$data['reference_no']}");
                 }
             } else {
+                // Insert new record
                 $id = DB::table('consumers')->insertGetId($data);
-                $consumer = DB::table('consumers')->where('id', $id)->first();
-                $this->insertElasticSearch($id, (array) $consumer);
-                // Log::info("Inserted new record: {$data['reference_no']}");
+                $newConsumer = DB::table('consumers')->find($id);
+
+                $this->insertElasticSearch($id, (array) $newConsumer);
+                Log::info("Inserted new record: {$data['reference_no']}");
             }
         }
 
         fclose($handle);
+
         $executionTime = round(microtime(true) - $startTime, 2);
-        // Log::info("Finished processing {$this->filePath} in {$executionTime} seconds.");
+        Log::info("Finished processing {$this->filePath} in {$executionTime} seconds.");
     }
 
     private function insertElasticSearch($id, $data)
@@ -106,6 +118,7 @@ class ProcessCsvFile implements ShouldQueue
             'id'    => $id,
             'body'  => $data
         ];
+
         $client->index($params);
     }
 
@@ -120,6 +133,7 @@ class ProcessCsvFile implements ShouldQueue
                 'doc' => $data
             ]
         ];
+
         $client->update($params);
     }
 }

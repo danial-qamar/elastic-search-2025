@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ImportAndIndexConsumers;
 use Illuminate\Http\Request;
 use App\Models\Consumer;
 use Elasticsearch\ClientBuilder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class ConsumerController extends Controller
 {
@@ -208,4 +212,121 @@ class ConsumerController extends Controller
 
         return redirect()->route('consumers.index')->with('success', 'Consumer deleted successfully');
     }
+
+    public function elasticSearch(Request $request)
+    {
+        
+        $validator = Validator::make($request->all(), [
+            'reference_no' => 'required_without_all:cnic,contactno|digits:14',
+            'cnic'         => 'required_without_all:reference_no,contactno|digits:13',
+            'contactno'    => 'required_without_all:reference_no,cnic|digits:12',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'total' => 0,
+                'results' => [],
+                'errors' => $validator->errors(),
+            ], 422); // Unprocessable Entity
+        }
+
+        $page = $request->get('page', 1);
+        $perPage = 10;
+
+        $params = [
+            'index' => 'consumers',
+            'body'  => [
+                'from' => ($page - 1) * $perPage,
+                'size' => $perPage,
+                'query' => [
+                    'bool' => [
+                        'must' => [],
+                        'filter' => []
+                    ]
+                ]
+            ]
+        ];
+
+        if ($request->filled('reference_no')) {
+            $params['body']['query']['bool']['filter'][] = [
+                'term' => [
+                    'reference_no' => [
+                        'value' => $request->get('reference_no'),
+                        'boost' => 1
+                    ]
+                ]
+            ];
+        }
+
+        if ($request->filled('cnic')) {
+            $params['body']['query']['bool']['filter'][] = [
+                'term' => [
+                    'occupant_nicno' => [
+                        'value' => $request->get('cnic'),
+                        'boost' => 1
+                    ]
+                ]
+            ];
+        }
+
+        if ($request->filled('contactno')) {
+            $params['body']['query']['bool']['filter'][] = [
+                'term' => [
+                    'contactno' => [
+                        'value' => $request->get('contactno'),
+                        'boost' => 1
+                    ]
+                ]
+            ];
+        }
+
+        try {
+            $response = $this->client->search($params);
+
+            $results = array_map(fn($hit) => $hit['_source'], $response['hits']['hits']);
+
+            return response()->json([
+                'total' => $response['hits']['total']['value'],
+                'results' => $results,
+                'query' => $params['body']['query']
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'total' => 0,
+                'results' => [],
+                'query' => $params['body']['query'],
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'importFile' => 'required|mimes:csv,txt|max:204800'
+        ]);
+
+        $trackingId = Str::uuid()->toString();
+        $savedPath = $request->file('importFile')
+        ->storeAs('imports', $request->file('importFile')->getClientOriginalName());
+
+        dispatch(new ImportAndIndexConsumers($savedPath, $trackingId));
+
+        return response()->json([
+            'tracking_id' => $trackingId
+        ]);
+    }
+
+    public function importSummary($trackingId)
+    {
+        $summary = Cache::get("import_summary_{$trackingId}");
+
+        if (!$summary) {
+            return response()->json(['status' => 'running']);
+        }
+
+        return response()->json($summary);
+    }
+
 }

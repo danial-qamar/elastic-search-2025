@@ -76,7 +76,77 @@
                         @endforeach
                     </tbody>
                 </table>
+                @if($totalPages > 1)
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav>
+                            <ul class="pagination pagination-sm flex-wrap">
+
+                                {{-- Previous Page Link --}}
+                                @if($page > 1)
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ request()->fullUrlWithQuery(['page' => $page - 1]) }}" rel="prev" aria-label="« Previous">‹</a>
+                                    </li>
+                                @else
+                                    <li class="page-item disabled" aria-disabled="true" aria-label="« Previous">
+                                        <span class="page-link" aria-hidden="true">‹</span>
+                                    </li>
+                                @endif
+
+                                {{-- Determine page range to show --}}
+                                @php
+                                    $start = max(1, $page - 4);
+                                    $end = min($totalPages, $page + 4);
+                                @endphp
+
+                                {{-- Leading Ellipsis --}}
+                                @if($start > 1)
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ request()->fullUrlWithQuery(['page' => 1]) }}">1</a>
+                                    </li>
+                                    @if($start > 2)
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    @endif
+                                @endif
+
+                                {{-- Page Links --}}
+                                @for ($i = $start; $i <= $end; $i++)
+                                    <li class="page-item {{ $i == $page ? 'active' : '' }}">
+                                        @if ($i == $page)
+                                            <span class="page-link">{{ $i }}</span>
+                                        @else
+                                            <a class="page-link" href="{{ request()->fullUrlWithQuery(['page' => $i]) }}">{{ $i }}</a>
+                                        @endif
+                                    </li>
+                                @endfor
+
+                                {{-- Trailing Ellipsis --}}
+                                @if($end < $totalPages)
+                                    @if($end < $totalPages - 1)
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    @endif
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ request()->fullUrlWithQuery(['page' => $totalPages]) }}">{{ $totalPages }}</a>
+                                    </li>
+                                @endif
+
+                                {{-- Next Page Link --}}
+                                @if($page < $totalPages)
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ request()->fullUrlWithQuery(['page' => $page + 1]) }}" rel="next" aria-label="Next »">›</a>
+                                    </li>
+                                @else
+                                    <li class="page-item disabled" aria-disabled="true" aria-label="Next »">
+                                        <span class="page-link" aria-hidden="true">›</span>
+                                    </li>
+                                @endif
+
+                            </ul>
+                        </nav>
+                    </div>
+                @endif
+
             </div>
         </div>
     @endif
+    <!-- Manual Pagination -->
 @endsection
