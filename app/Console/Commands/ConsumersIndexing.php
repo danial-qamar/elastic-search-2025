@@ -24,7 +24,6 @@ class ConsumersIndexing extends Command
             $subdivisionStart = microtime(true);
             $subCode = $sub->code;
 
-            // Delete old index for this subdivision
             try {
                 $client->deleteByQuery([
                     'index' => 'consumers',
@@ -39,7 +38,6 @@ class ConsumersIndexing extends Command
                 $this->warn("No previous index found for subdivision: $subCode");
             }
 
-            // Count consumers in DB for this subdivision
             $consumersCount = Consumer::whereRaw("SUBSTRING(reference_no, 3, 5) = ?", [$subCode])->count();
             $this->info("Subdivision $subCode - Total consumers in DB: $consumersCount");
 
@@ -48,7 +46,6 @@ class ConsumersIndexing extends Command
             $indexedThisSubdivision = 0;
             $batchNumber = 1;
 
-            // Fetch & index in batches
             while (true) {
                 $batchStart = microtime(true);
 
@@ -58,7 +55,7 @@ class ConsumersIndexing extends Command
                     ->get();
 
                 if ($consumers->isEmpty()) {
-                    break; // no more records
+                    break;
                 }
 
                 $bulkParams = ['body' => []];
@@ -76,7 +73,6 @@ class ConsumersIndexing extends Command
                     $bulkParams['body'][] = $consumerData;
                 }
 
-                // Push to Elasticsearch
                 $client->bulk($bulkParams);
 
                 $indexedCount = $consumers->count();
@@ -89,7 +85,6 @@ class ConsumersIndexing extends Command
                 $offset += $batchSize;
                 $batchNumber++;
 
-                // If last batch had fewer records than batch size, stop
                 if ($indexedCount < $batchSize) {
                     break;
                 }
@@ -100,13 +95,11 @@ class ConsumersIndexing extends Command
             $this->line(str_repeat('-', 60));
         }
 
-        // Summary stats
         $totalTime = round(microtime(true) - $startTime, 2);
         $this->info("📍 Total subdivisions processed: " . count($subdivisions));
         $this->info("⚡ Average speed: " . round($totalIndexed / max($totalTime, 1), 2) . " records/sec");
         $this->info("📊 Total records indexed: $totalIndexed");
 
-        // Format total time
         $seconds = $totalTime;
         if ($seconds < 60) {
             $formattedTime = "{$seconds}s";

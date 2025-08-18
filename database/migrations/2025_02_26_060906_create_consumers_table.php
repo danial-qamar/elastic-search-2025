@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('reference_no', 100)->nullable();
             $table->index('reference_no');
+            $table->string('subdivision_code', 100)->nullable();
+            $table->index('subdivision_code');
             $table->string('bill_month', 100)->nullable();
             $table->string('name', 255)->nullable();
             $table->string('fname', 255)->nullable();
