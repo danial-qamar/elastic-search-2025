@@ -15,16 +15,12 @@ use App\Http\Controllers\ConsumerController;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
-Route::get('/login', function () {
-    return view('login');
-})->name('login');
-
+Route::get('/', [ConsumerController::class, 'showLogin'])->name('root');
+Route::get('/login', [ConsumerController::class, 'showLogin'])->name('login');
 Route::post('/login', [ConsumerController::class, 'login'])->name('loggedIn');
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [ConsumerController::class, 'dashboard'])->name('dashboard');
     Route::get('/consumers', [ConsumerController::class, 'index'])->name('consumers.index');
     Route::get('/consumers/create', [ConsumerController::class, 'create'])->name('consumers.create');
     Route::post('/consumers', [ConsumerController::class, 'store'])->name('consumers.store');

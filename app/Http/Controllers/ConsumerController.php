@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Jobs\ImportAndIndexConsumers;
 use Illuminate\Http\Request;
 use App\Models\Consumer;
+use App\Models\ImportLog;
 use Elasticsearch\ClientBuilder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -19,6 +21,20 @@ class ConsumerController extends Controller
     public function __construct()
     {
         $this->client = ClientBuilder::create()->build();
+    }
+
+    public function dashboard(){
+        $logs = ImportLog::with('subdivisions')->latest()->get();
+        return view('dashboard', compact('logs'));
+    }
+
+    public function showLogin()
+    {
+        if (Auth::check()) {
+            return redirect()->route('consumers.index');
+        }
+
+        return view('login');
     }
 
     public function login(Request $request)

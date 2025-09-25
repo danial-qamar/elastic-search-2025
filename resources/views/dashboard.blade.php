@@ -1,189 +1,96 @@
-@extends('layouts.app', [
-    'class' => '',
-    'elementActive' => 'dashboard'
-])
+@extends('layouts.app')
+
+@section('title', 'Consumers')
 
 @section('content')
-    <div class="content">
-        <div class="row">
-            <div class="col-lg-3 col-md-6 col-sm-6">
-                <div class="card card-stats">
-                    <div class="card-body ">
-                        <div class="row">
-                            <div class="col-5 col-md-4">
-                                <div class="icon-big text-center icon-warning">
-                                    <i class="nc-icon nc-globe text-warning"></i>
-                                </div>
-                            </div>
-                            <div class="col-7 col-md-8">
-                                <div class="numbers">
-                                    <p class="card-category">Capacity</p>
-                                    <p class="card-title">150GB
-                                        <p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer ">
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-refresh"></i> Update Now
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 col-sm-6">
-                <div class="card card-stats">
-                    <div class="card-body ">
-                        <div class="row">
-                            <div class="col-5 col-md-4">
-                                <div class="icon-big text-center icon-warning">
-                                    <i class="nc-icon nc-money-coins text-success"></i>
-                                </div>
-                            </div>
-                            <div class="col-7 col-md-8">
-                                <div class="numbers">
-                                    <p class="card-category">Revenue</p>
-                                    <p class="card-title">$ 1,345
-                                        <p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer ">
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-calendar-o"></i> Last day
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 col-sm-6">
-                <div class="card card-stats">
-                    <div class="card-body ">
-                        <div class="row">
-                            <div class="col-5 col-md-4">
-                                <div class="icon-big text-center icon-warning">
-                                    <i class="nc-icon nc-vector text-danger"></i>
-                                </div>
-                            </div>
-                            <div class="col-7 col-md-8">
-                                <div class="numbers">
-                                    <p class="card-category">Errors</p>
-                                    <p class="card-title">23
-                                        <p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer ">
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-clock-o"></i> In the last hour
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 col-sm-6">
-                <div class="card card-stats">
-                    <div class="card-body ">
-                        <div class="row">
-                            <div class="col-5 col-md-4">
-                                <div class="icon-big text-center icon-warning">
-                                    <i class="nc-icon nc-favourite-28 text-primary"></i>
-                                </div>
-                            </div>
-                            <div class="col-7 col-md-8">
-                                <div class="numbers">
-                                    <p class="card-category">Followers</p>
-                                    <p class="card-title">+45K
-                                        <p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer ">
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-refresh"></i> Update now
-                        </div>
-                    </div>
-                </div>
-            </div>
+
+<div class="container">
+    <h2 class="text-center mb-4">Dashboard</h2>
+
+    <div class="card mt-4">
+        <div class="card-header bg-dark text-white">
+            <h4>Import Logs</h4>
         </div>
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card ">
-                    <div class="card-header ">
-                        <h5 class="card-title">Users Behavior</h5>
-                        <p class="card-category">24 Hours performance</p>
-                    </div>
-                    <div class="card-body ">
-                        <canvas id=chartHours width="400" height="100"></canvas>
-                    </div>
-                    <div class="card-footer ">
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-history"></i> Updated 3 minutes ago
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card ">
-                    <div class="card-header ">
-                        <h5 class="card-title">Email Statistics</h5>
-                        <p class="card-category">Last Campaign Performance</p>
-                    </div>
-                    <div class="card-body ">
-                        <canvas id="chartEmail"></canvas>
-                    </div>
-                    <div class="card-footer ">
-                        <div class="legend">
-                            <i class="fa fa-circle text-primary"></i> Opened
-                            <i class="fa fa-circle text-warning"></i> Read
-                            <i class="fa fa-circle text-danger"></i> Deleted
-                            <i class="fa fa-circle text-gray"></i> Unopened
-                        </div>
-                        <hr>
-                        <div class="stats">
-                            <i class="fa fa-calendar"></i> Number of emails sent
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-8">
-                <div class="card card-chart">
-                    <div class="card-header">
-                        <h5 class="card-title">NASDAQ: AAPL</h5>
-                        <p class="card-category">Line Chart with Points</p>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="speedChart" width="400" height="100"></canvas>
-                    </div>
-                    <div class="card-footer">
-                        <div class="chart-legend">
-                            <i class="fa fa-circle text-info"></i> Tesla Model S
-                            <i class="fa fa-circle text-warning"></i> BMW 5 Series
-                        </div>
-                        <hr />
-                        <div class="card-stats">
-                            <i class="fa fa-check"></i> Data information certified
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="card-body">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Bill Month</th>
+                        <th>Duration</th>
+                        <th>Consumers</th>
+                        <th>Subdivisions</th>
+                        <th>Indexed</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($logs as $log)
+                        <tr data-bs-toggle="collapse" data-bs-target="#log-{{ $log->id }}" class="accordion-toggle table-primary" style="cursor:pointer;">
+                            <td>{{ \Carbon\Carbon::createFromFormat('Ym', $log->bill_month)->format('M Y') }}</td>
+                            <td>
+                                @if ($log->duration)
+                                    @php
+                                        $seconds = (int) $log->duration;
+                                        $days = intdiv($seconds, 86400); 
+                                        $seconds %= 86400;
+                                        $hours = intdiv($seconds, 3600);
+                                        $seconds %= 3600;
+                                        $minutes = intdiv($seconds, 60);
+                                        $seconds %= 60;
+                                    @endphp
+                                    @if($days > 0) {{ $days }}d @endif
+                                    @if($hours > 0) {{ $hours }}h @endif
+                                    @if($minutes > 0) {{ $minutes }}m @endif
+                                    @if($seconds > 0) {{ $seconds }}s @endif
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td>{{ number_format($log->consumers_count ?? 0) }}</td>
+                            <td>{{ number_format($log->subdivisions_count ?? 0) }}</td>
+                            <td>{{ number_format($log->indexed_count ?? 0) }}</td>
+                            <td>{{ \Carbon\Carbon::parse($log->created_at)->format('jS M, Y h:i A') }}</td>
+                        </tr>
+
+                        {{-- Collapsible subdivision rows --}}
+                        <tr>
+                            <td colspan="6" class="hiddenRow p-0">
+                                <div class="collapse" id="log-{{ $log->id }}">
+                                    <table class="table table-sm table-striped m-0">
+                                        <thead class="table-secondary">
+                                            <tr>
+                                                <th class="ps-5">Subdivision Code</th>
+                                                <th>Consumers</th>
+                                                <th>Indexed</th>
+                                                <th>Created</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($log->subdivisions as $sub)
+                                                <tr>
+                                                    <td class="ps-5">{{ $sub->subdivision_code }}</td>
+                                                    <td>{{ number_format($sub->consumers_count ?? 0) }}</td>
+                                                    <td>{{ number_format($sub->indexed_count ?? 0) }}</td>
+                                                    <td>{{ \Carbon\Carbon::parse($sub->created_at)->format('jS M, Y h:i A') }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center">No import logs found</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
-@endsection
 
+</div>
+@endsection
 @push('scripts')
-    <script>
-        $(document).ready(function() {
-            // Javascript method's body can be found in assets/assets-for-demo/js/demo.js
-            demo.initChartsPages();
-        });
-    </script>
+    <script src="{{ asset('js/consumers.js') }}"></script>
 @endpush

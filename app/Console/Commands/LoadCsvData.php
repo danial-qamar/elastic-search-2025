@@ -11,7 +11,8 @@ use App\Models\Consumer;
 
 class LoadCsvData extends Command
 {
-    protected $signature = 'app:load-and-index-csv';
+    protected $signature = 'app:load-and-index-csv {bill_month?} {--truncate}';
+
     protected $description = 'Loads CSV files into consumers table and indexes them into Elasticsearch subdivision-by-subdivision.';
 
     public function handle()
@@ -23,11 +24,41 @@ class LoadCsvData extends Command
             $this->error("Data import folder not found: $filepath");
             return;
         }
+        $billMonth = $this->argument('bill_month');
 
-        DB::table('consumers')->truncate();
-        DB::table('subdivision')->truncate();
+        if (!$billMonth) {
+            $this->error("❌ bill_month argument is required");
+            return;
+        }
+
+        if ($this->option('truncate')) { 
+            DB::table('consumers')->truncate(); 
+            DB::table('subdivision')->truncate(); 
+            if ($billMonth) {
+                $logIds = DB::table('import_logs')->where('bill_month', $billMonth)->pluck('id');
+                DB::table('import_log_subdivisions')->whereIn('import_log_id', $logIds)->delete();
+                DB::table('import_logs')->whereIn('id', $logIds)->delete();
+                $this->info("🗑️ import_logs and import_log_subdivisions cleared for bill_month {$billMonth}.");
+            }
+            $this->info("✅ consumers and subdivision tables truncated."); 
+        }
 
         $files = File::files($filepath);
+
+        $importLog = DB::table('import_logs')->updateOrInsert(
+            ['bill_month' => $billMonth],
+            [
+                'consumers_count'   => 0,
+                'subdivisions_count'=> 0,
+                'indexed_count'     => 0,
+                'updated_at'        => now(),
+                'created_at'        => now(),
+            ]
+        );
+
+        // fetch fresh instance (with id)
+        $importLogId = DB::table('import_logs')->where('bill_month', $billMonth)->value('id');
+
         $records = [];
         $totalIndexed = 0;
         $totalImported = 0;
@@ -54,9 +85,9 @@ class LoadCsvData extends Command
 
             $filePath = $file->getPathname();
 
-            // Track last ID before load
             $lastIdBefore = DB::table('consumers')->max('id') ?? 0;
-
+            $env = env('APP_ENV');
+            $replaceFn = $env === 'prod' ? 'REPLACE' : 'REGEXP_REPLACE';
             // Load CSV into DB
             $query = "LOAD DATA LOCAL INFILE '" . addslashes($filePath) . "' INTO TABLE consumers
                 CHARACTER SET latin1
@@ -73,10 +104,11 @@ class LoadCsvData extends Command
                 defective_remaning_times, agriculture_motor_code, tv_exempt_code, uniqkey, old_reference_no, old_reference_change_date, 
                 gps_longitude, gps_latitude, sub_batch, tariff, sanction_load, connected_load, rural_uraban_code, 
                 standard_classification_code, total_kwh_meter, govt_department_code, electricity_duty_code, @occupant_nicno)
-                SET reference_no = TRIM(REGEXP_REPLACE(@reference_no, '[^A-Z0-9]', '')),
-                    subdivision_code = SUBSTRING(TRIM(REGEXP_REPLACE(@reference_no, '[^A-Z0-9]', '')), 3, 5),
-                    occupant_nicno = TRIM(REGEXP_REPLACE(@occupant_nicno, '[^A-Z0-9]', '')),
-                    contactno = TRIM(REGEXP_REPLACE(@contactno, '[^A-Z0-9]', ''))";
+                SET reference_no = TRIM({$replaceFn}(@reference_no, '[^A-Z0-9]', '')),
+                    subdivision_code = SUBSTRING(TRIM({$replaceFn}(@reference_no, '[^A-Z0-9]', '')), 3, 5),
+                    occupant_nicno = TRIM({$replaceFn}(@occupant_nicno, '[^A-Z0-9]', '')),
+                    contactno = TRIM({$replaceFn}(@contactno, '[^A-Z0-9]', ''))";
+
 
             try {
                 DB::unprepared($query);
@@ -87,6 +119,17 @@ class LoadCsvData extends Command
                 $countForFile = $newConsumers->count();
                 $totalImported += $countForFile;
 
+                DB::table('import_log_subdivisions')->updateOrInsert(
+                    [
+                        'import_log_id'    => $importLogId,
+                        'subdivision_code' => $subCode,
+                    ],
+                    [
+                        'consumers_count' => DB::raw("consumers_count + {$countForFile}"),
+                        'indexed_count'   => DB::raw("indexed_count + {$countForFile}"),
+                        'updated_at'      => now(),
+                    ]
+                );
                 $this->info("✅ {$file->getFilename()} loaded: {$countForFile} records");
 
                 // Delete old index for this subdivision
@@ -140,7 +183,28 @@ class LoadCsvData extends Command
             $this->info(count($records) . " subdivisions inserted successfully.");
         }
 
+        
         $totalTime = round(microtime(true) - $startTime, 2);
+        $importLog = DB::table('import_logs')->where('id', $importLogId)->first();
+        $durationToSave = $totalTime;
+        if (!$this->option('truncate') && $importLog) {
+            $durationToSave = $importLog->duration + $totalTime;
+        }
+        DB::table('import_logs')
+        ->where('id', $importLogId)
+        ->update([
+            'consumers_count'   => DB::table('import_log_subdivisions')
+                                        ->where('import_log_id', $importLogId)
+                                        ->sum('consumers_count'),
+            'subdivisions_count'=> DB::table('import_log_subdivisions')
+                                        ->where('import_log_id', $importLogId)
+                                        ->count(),
+            'indexed_count'     => DB::table('import_log_subdivisions')
+                                        ->where('import_log_id', $importLogId)
+                                        ->sum('indexed_count'),
+            'duration'          => $durationToSave,
+            'updated_at'        => now(),
+        ]);
         $this->info("📊 Import + Index Summary:");
         $this->info("   Total records imported: $totalImported");
         $this->info("   Total records indexed: $totalIndexed");
