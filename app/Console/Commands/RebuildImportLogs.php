@@ -59,7 +59,7 @@ class RebuildImportLogs extends Command
                 'import_log_id'    => $importLogId,
                 'subdivision_code' => $row->subdivision_code,
                 'consumers_count'  => $row->consumers_count,
-                'indexed_count'    => 0, // we can’t rebuild this unless we check ES
+                'indexed_count'    => $row->consumers_count, // we can’t rebuild this unless we check ES
                 'created_at'       => now(),
                 'updated_at'       => now(),
             ];
