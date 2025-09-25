@@ -55,6 +55,10 @@ class RebuildImportLogs extends Command
 
         foreach ($subdivisionData as $row) {
             $totalConsumers += $row->consumers_count;
+            if (!preg_match('/^\d{5}$/', $row->subdivision_code)) {
+                $this->warn("⚠️ Skipping invalid subdivision code: {$row->subdivision_code}");
+                continue;
+            }
             $subdivisionRows[] = [
                 'import_log_id'    => $importLogId,
                 'subdivision_code' => $row->subdivision_code,
