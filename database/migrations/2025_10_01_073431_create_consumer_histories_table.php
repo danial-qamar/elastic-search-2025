@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('consumer_id');
             $table->unsignedBigInteger('updated_by')->nullable(); 
-            $table->json('changed_fields');
+            $table->text('changed_fields');
             $table->timestamps();
         });
     }
