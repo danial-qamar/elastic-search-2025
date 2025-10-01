@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard')</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="icon" type="image/png" href="{{ asset('images/icons/pitc.png') }}">
     <link href="{{ asset('css/loader.css') }}" rel="stylesheet">
     <style>
         .pagination {
