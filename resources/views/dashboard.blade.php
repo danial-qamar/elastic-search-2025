@@ -9,7 +9,7 @@
 
     <div class="card mt-4">
         <div class="card-header bg-dark text-white">
-            <h4>Import Logs</h4>
+            <h4>Consumers Logs</h4>
         </div>
         <div class="card-body">
             <table class="table table-bordered table-striped">

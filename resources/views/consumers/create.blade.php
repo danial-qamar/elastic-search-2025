@@ -1,15 +1,8 @@
-<!-- resources/views/consumers/create.blade.php -->
+@extends('layouts.app')
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Create Consumer</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
+@section('title', 'Create Consumer')
+
+@section('content')
     <div class="container mt-5">
         <h2 class="text-center mb-4">Add New Consumer</h2>
 
@@ -24,7 +17,7 @@
                 <h4>Consumer Details</h4>
             </div>
             <div class="card-body">
-                <form action="{{ route('consumers.store') }}" method="POST">
+                <form id="consumerStoreForm" action="{{ route('consumers.store') }}" method="POST">
                     @csrf
 
                     <div class="row">
@@ -47,8 +40,7 @@
                             </div>
                         @endforeach
                     </div>
-
-                    <div class="text-right">
+                    <div class="d-flex justify-content-end gap-2">
                         <button type="submit" class="btn btn-success">Save Consumer</button>
                         <a href="{{ route('consumers.index') }}" class="btn btn-secondary">Cancel</a>
                     </div>
@@ -58,3 +50,8 @@
     </div>
 </body>
 </html>
+@endsection
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/jquery.validation/1.19.5/jquery.validate.min.js"></script>
+    <script src="{{ asset('js/consumers-validation.js') }}"></script>
+@endpush

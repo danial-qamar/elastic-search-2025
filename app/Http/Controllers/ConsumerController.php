@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ImportAndIndexConsumers;
+use App\Models\ImportLogSubdivision;
 use Illuminate\Http\Request;
 use App\Models\Consumer;
+use App\Models\ConsumerHistory;
 use App\Models\ImportLog;
 use Elasticsearch\ClientBuilder;
 use Illuminate\Support\Facades\Auth;
@@ -31,7 +33,7 @@ class ConsumerController extends Controller
     public function showLogin()
     {
         if (Auth::check()) {
-            return redirect()->route('consumers.index');
+            return redirect()->route('dashboard');
         }
 
         return view('login');
@@ -152,17 +154,44 @@ class ConsumerController extends Controller
 
     public function store(Request $request)
     {
-        $consumer = Consumer::create($request->all());
+        $data = $request->all();
+        $refNo = $data['reference_no'];
+        $data['subdivision_code'] = substr($refNo, 2, 5);
+
+        $consumer = Consumer::create($data);
+
         $params = [
             'index' => 'consumers',
             'id'    => $consumer->id,
             'body'  => $consumer->toArray(),
         ];
 
+        $indexed = false;
         try {
             $this->client->index($params);
+            $indexed = true;
         } catch (\Exception $e) {
             Log::error("Elasticsearch index error: " . $e->getMessage());
+        }
+
+        $importLog = ImportLog::firstOrCreate(
+            ['bill_month' => $consumer->bill_month],
+            ['consumers_count' => 0, 'subdivisions_count' => 0, 'indexed_count' => 0]
+        );
+        $importLog->increment('consumers_count');
+
+        if ($indexed) {
+            $importLog->increment('indexed_count');
+        }
+
+        $subdivision = ImportLogSubdivision::firstOrCreate(
+            ['import_log_id' => $importLog->id, 'subdivision_code' => $consumer->subdivision_code],
+            ['consumers_count' => 0, 'indexed_count' => 0]
+        );
+        $subdivision->increment('consumers_count');
+
+        if ($indexed) {
+            $subdivision->increment('indexed_count');
         }
 
         return redirect()->route('consumers.index')->with('success', 'Consumer added successfully');
@@ -191,7 +220,37 @@ class ConsumerController extends Controller
     public function update(Request $request, $id)
     {
         $consumer = Consumer::findOrFail($id);
-        $consumer->update($request->all());
+        $data = $request->all();
+        $refNo = $data['reference_no'];
+        $data['subdivision_code'] = substr($refNo, 2, 5);
+        $original = $consumer->getOriginal();
+        $consumer->update($data);
+        $changes = [];
+
+        foreach ($consumer->getChanges() as $field => $newValue) {
+            if ($field !== "updated_at") {
+                $oldValue = trim($original[$field] ?? '');
+
+                $oldValue = $oldValue === '' ? '-' : $oldValue;
+                $newValue = trim($newValue ?? '');
+                $newValue = $newValue === '' ? '-' : $newValue;
+
+                if ($oldValue !== $newValue) {
+                    $changes[$field] = [
+                        'old' => $oldValue,
+                        'new' => $newValue,
+                    ];
+                }
+            }
+        }
+
+        if (!empty($changes)) {
+            ConsumerHistory::create([
+                'consumer_id'    => $consumer->id,
+                'updated_by'     => auth()->id() ?? null,
+                'changed_fields' => json_encode($changes),
+            ]);
+        }
 
         $params = [
             'index' => 'consumers',
@@ -213,6 +272,10 @@ class ConsumerController extends Controller
     public function destroy($id)
     {
         $consumer = Consumer::findOrFail($id);
+
+        $billMonth = $consumer->bill_month;
+        $subdivisionCode = $consumer->subdivision_code;
+
         $consumer->delete();
 
         $params = [
@@ -220,14 +283,36 @@ class ConsumerController extends Controller
             'id'    => $id
         ];
 
+        $deletedFromIndex = false;
         try {
             $this->client->delete($params);
+            $deletedFromIndex = true;
         } catch (\Exception $e) {
             Log::error("Elasticsearch delete error: " . $e->getMessage());
         }
 
+        if ($importLog = ImportLog::where('bill_month', $billMonth)->first()) {
+            $importLog->decrement('consumers_count');
+            if ($deletedFromIndex) {
+                $importLog->decrement('indexed_count');
+            }
+        }
+
+        if ($importLog) {
+            if ($subdivision = ImportLogSubdivision::where([
+                'import_log_id'    => $importLog->id,
+                'subdivision_code' => $subdivisionCode
+            ])->first()) {
+                $subdivision->decrement('consumers_count');
+                if ($deletedFromIndex) {
+                    $subdivision->decrement('indexed_count');
+                }
+            }
+        }
+
         return redirect()->route('consumers.index')->with('success', 'Consumer deleted successfully');
     }
+
 
     public function elasticSearch(Request $request)
     {
@@ -345,4 +430,22 @@ class ConsumerController extends Controller
         return response()->json($summary);
     }
 
+    public function allHistories()
+    {
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $histories */
+        $histories = ConsumerHistory::with(['consumer', 'user'])
+            ->latest()
+            ->paginate(20);
+
+        // Ensure changed_fields is always an array
+        $histories->getCollection()->transform(function ($history) {
+            if (is_string($history->changed_fields)) {
+                $decoded = json_decode($history->changed_fields, true);
+                $history->changed_fields = $decoded ?: [];
+            }
+            return $history;
+        });
+
+        return view('consumers.histories-all', compact('histories'));
+    }
 }

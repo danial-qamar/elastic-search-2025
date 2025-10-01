@@ -46,3 +46,6 @@
     </div>
 </body>
 </html>
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/jquery.validation/1.19.5/jquery.validate.min.js"></script>
+@endpush

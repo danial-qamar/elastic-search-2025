@@ -24,7 +24,7 @@ class Consumer extends Model
         'last_replacement_date', 'defective_times', 'replacement_times', 'defective_remaning_times', 'agriculture_motor_code', 'tv_exempt_code', 
         'uniqkey', 'old_reference_no', 'old_reference_change_date', 'gps_longitude', 'gps_latitude', 'sub_batch', 'tariff', 'sanction_load', 
         'connected_load', 'rural_uraban_code', 'standard_classification_code', 'total_kwh_meter', 'govt_department_code', 'electricity_duty_code', 
-        'occupant_nicno',
+        'occupant_nicno','subdivision_code',
     ];
 
     // Elasticsearch Mappings (Field types)

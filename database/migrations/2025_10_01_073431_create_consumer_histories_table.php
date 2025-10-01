@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('consumer_histories', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('consumer_id');
+            $table->unsignedBigInteger('updated_by')->nullable(); 
+            $table->json('changed_fields');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('consumer_histories');
+    }
+};

@@ -30,5 +30,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/consumers/search', [ConsumerController::class, 'searchPage'])->name('consumers.search');
     Route::post('/consumers/import', [ConsumerController::class, 'import'])->name('consumers.import');
     Route::get('/consumers/import-summary/{id}', [ConsumerController::class, 'importSummary'])->name('consumers.import.summary');
+    Route::get('/consumers-histories', [ConsumerController::class, 'allHistories'])
+    ->name('consumers.histories.all');
+    Route::get('/consumers/{consumer}/history', [ConsumerController::class, 'consumerHistory'])
+    ->name('consumers.history');
     Route::get('/logout', [ConsumerController::class, 'logout'])->name('logout');
 });

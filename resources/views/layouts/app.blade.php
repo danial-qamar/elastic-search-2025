@@ -47,6 +47,7 @@
         <a href="{{ route('dashboard') }}">Dashboard</a>
         <a href="{{ route('consumers.index') }}">Consumers</a>
         <a href="{{ route('consumers.search') }}">Search Consumers</a>
+        <a href="{{ route('consumers.histories.all') }}">Consumers Histories</a>
         <a href="{{ route('logout') }}" class="btn btn-danger mt-3">Logout</a>
     </div>
 
