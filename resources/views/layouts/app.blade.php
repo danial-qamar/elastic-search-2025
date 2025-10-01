@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard')</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link href="{{ asset('css/loader.css') }}" rel="stylesheet">
     <style>
         .pagination {
             font-size: 14px;
@@ -37,7 +38,9 @@
     </style>
 </head>
 <body>
-
+    <div id="preloader">
+        <div class="loader"></div>
+    </div>
     <div class="sidebar">
         <h4>Menu</h4>
         <a href="{{ route('dashboard') }}">Dashboard</a>
@@ -50,10 +53,18 @@
         @yield('content')
     </div>
 </body>
-<script>
-   var baseUrl = "{{ env('BASE_URL') }}";
-</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script>
+   var baseUrl = "{{ env('BASE_URL') }}";
+    var preloader = $('#preloader');
+    $(window).on('load', function() {
+        setTimeout(function() {
+            preloader.fadeOut('slow', function() {
+                $(this).remove();
+            });
+        }, 300)
+    });
+</script>
 @stack('scripts')
 </html>
