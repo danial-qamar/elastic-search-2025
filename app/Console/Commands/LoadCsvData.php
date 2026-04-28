@@ -113,6 +113,9 @@ class LoadCsvData extends Command
             try {
                 DB::unprepared($query);
 
+                // Reconnect to avoid interrupted connection after long LOAD DATA
+                DB::reconnect();
+
                 // Get last inserted IDs
                 $lastIdAfter = DB::table('consumers')->max('id') ?? $lastIdBefore;
                 $newConsumers = Consumer::whereBetween('id', [$lastIdBefore + 1, $lastIdAfter])->get();
