@@ -64,7 +64,58 @@ class ConsumerController extends Controller
 
     public function index(Request $request)
     {   
-        $consumers = Consumer::paginate(10);
+        $page = $request->get('page', 1);
+        $perPage = 10;
+
+        $params = [
+            'index' => 'consumers',
+            'body'  => [
+                'from' => ($page - 1) * $perPage,
+                'size' => $perPage,
+                'query' => [
+                    'match_all' => (object)[]
+                ],
+                'sort' => [
+                    ['id' => ['order' => 'asc']]
+                ]
+            ]
+        ];
+
+        try {
+            $response = $this->client->search($params);
+
+            $total = $response['hits']['total']['value'];
+            $hits = $response['hits']['hits'];
+
+            // Hydrate Elasticsearch hits into Consumer Eloquent model instances
+            $consumersItems = collect($hits)->map(function ($hit) {
+                $attributes = $hit['_source'];
+                $attributes['id'] = $hit['_id'] ?? ($attributes['id'] ?? null);
+
+                $consumer = new Consumer();
+                $consumer->forceFill($attributes);
+                $consumer->exists = true;
+
+                return $consumer;
+            });
+
+            // Create a LengthAwarePaginator
+            $consumers = new \Illuminate\Pagination\LengthAwarePaginator(
+                $consumersItems,
+                $total,
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'query' => $request->query(),
+                ]
+            );
+        } catch (\Exception $e) {
+            Log::error("Elasticsearch error in index: " . $e->getMessage());
+            // Fallback to database pagination if Elasticsearch is down/empty
+            $consumers = Consumer::paginate(10);
+        }
+
         return view('consumers.index', compact('consumers'));
     }
     public function searchPage(Request $request)
