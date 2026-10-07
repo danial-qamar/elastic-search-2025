@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ConsumerController extends Controller
 {
@@ -63,58 +64,71 @@ class ConsumerController extends Controller
     }
 
     public function index(Request $request)
-    {   
-        $page = $request->get('page', 1);
+    {
+        $page = max(1, (int) $request->get('page', 1));
         $perPage = 10;
+        $offset = ($page - 1) * $perPage;
 
-        $params = [
-            'index' => 'consumers',
-            'body'  => [
-                'from' => ($page - 1) * $perPage,
-                'size' => $perPage,
-                'query' => [
-                    'match_all' => (object)[]
-                ],
-                'sort' => [
-                    ['id' => ['order' => 'asc']]
-                ]
-            ]
-        ];
+        // Specific columns needed for the view - avoids loading 70+ unused columns for 40M rows
+        $columns = ['id', 'name', 'contactno', 'reference_no', 'occupant_nicno'];
 
-        try {
-            $response = $this->client->search($params);
-
-            $total = $response['hits']['total']['value'];
-            $hits = $response['hits']['hits'];
-
-            // Hydrate Elasticsearch hits into Consumer Eloquent model instances
-            $consumersItems = collect($hits)->map(function ($hit) {
-                $attributes = $hit['_source'];
-                $attributes['id'] = $hit['_id'] ?? ($attributes['id'] ?? null);
-
-                $consumer = new Consumer();
-                $consumer->forceFill($attributes);
-                $consumer->exists = true;
-
-                return $consumer;
-            });
-
-            // Create a LengthAwarePaginator
-            $consumers = new \Illuminate\Pagination\LengthAwarePaginator(
-                $consumersItems,
-                $total,
-                $perPage,
-                $page,
-                [
-                    'path' => $request->url(),
-                    'query' => $request->query(),
-                ]
-            );
-        } catch (\Exception $e) {
-            Log::error("Elasticsearch error in index: " . $e->getMessage());
-            // Fallback to database pagination if Elasticsearch is down/empty
-            $consumers = Consumer::paginate(10);
+        // Optimized query: ordered by indexed primary key, fetching only 10 records
+        if ($offset > 1000) {
+            // Deferred join optimization for deeper page offsets
+            $consumersItems = Consumer::select($columns)
+                ->join(DB::raw("(SELECT id AS sub_id FROM consumers ORDER BY id ASC LIMIT {$perPage} OFFSET {$offset}) AS sub"), 'consumers.id', '=', 'sub.sub_id')
+                ->orderBy('consumers.id', 'asc')
+                ->get();
+        } else {
+            $consumersItems = Consumer::select($columns)
+                ->orderBy('id', 'asc')
+                ->offset($offset)
+                ->limit($perPage)
+                ->get();
         }
+
+        // Fast count: avoids running a slow full-table COUNT(*) on 40M rows in MySQL InnoDB
+        $total = Cache::remember('consumers_total_count', 3600, function () {
+            try {
+                $dbName = config('database.connections.mysql.database');
+                $result = DB::selectOne("
+                    SELECT TABLE_ROWS 
+                    FROM information_schema.TABLES 
+                    WHERE TABLE_SCHEMA = ? 
+                      AND TABLE_NAME = 'consumers'
+                ", [$dbName]);
+
+                if ($result && (int) $result->TABLE_ROWS > 0) {
+                    return (int) $result->TABLE_ROWS;
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Could not read TABLE_ROWS: " . $e->getMessage());
+            }
+
+            try {
+                // Instant O(1) index lookup on primary key
+                $maxId = DB::table('consumers')->max('id');
+                if ($maxId) {
+                    return (int) $maxId;
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Could not read max id: " . $e->getMessage());
+            }
+
+            return 40000000;
+        });
+
+        // Create LengthAwarePaginator for 10 records per page
+        $consumers = new LengthAwarePaginator(
+            $consumersItems,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         return view('consumers.index', compact('consumers'));
     }
@@ -245,6 +259,8 @@ class ConsumerController extends Controller
             $subdivision->increment('indexed_count');
         }
 
+        Cache::forget('consumers_total_count');
+
         return redirect()->route('consumers.index')->with('success', 'Consumer added successfully');
     }
 
@@ -360,6 +376,8 @@ class ConsumerController extends Controller
                 }
             }
         }
+
+        Cache::forget('consumers_total_count');
 
         return redirect()->route('consumers.index')->with('success', 'Consumer deleted successfully');
     }
@@ -489,6 +507,24 @@ class ConsumerController extends Controller
             ->paginate(20);
 
         // Ensure changed_fields is always an array
+        $histories->getCollection()->transform(function ($history) {
+            if (is_string($history->changed_fields)) {
+                $decoded = json_decode($history->changed_fields, true);
+                $history->changed_fields = $decoded ?: [];
+            }
+            return $history;
+        });
+
+        return view('consumers.histories-all', compact('histories'));
+    }
+
+    public function consumerHistory($consumerId)
+    {
+        $histories = ConsumerHistory::with(['consumer', 'user'])
+            ->where('consumer_id', $consumerId)
+            ->latest()
+            ->paginate(20);
+
         $histories->getCollection()->transform(function ($history) {
             if (is_string($history->changed_fields)) {
                 $decoded = json_decode($history->changed_fields, true);

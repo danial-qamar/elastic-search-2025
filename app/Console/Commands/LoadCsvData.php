@@ -85,7 +85,6 @@ class LoadCsvData extends Command
 
             $filePath = $file->getPathname();
 
-            $lastIdBefore = DB::table('consumers')->max('id') ?? 0;
             $env = env('APP_ENV');
             $replaceFn = $env === 'prod' ? 'REPLACE' : 'REGEXP_REPLACE';
             // Load CSV into DB
@@ -112,14 +111,9 @@ class LoadCsvData extends Command
 
             try {
                 DB::unprepared($query);
-
-                // Reconnect to avoid interrupted connection after long LOAD DATA
                 DB::reconnect();
 
-                // Get last inserted IDs
-                $lastIdAfter = DB::table('consumers')->max('id') ?? $lastIdBefore;
-                $newConsumers = Consumer::whereBetween('id', [$lastIdBefore + 1, $lastIdAfter])->get();
-                $countForFile = $newConsumers->count();
+                $countForFile = DB::table('consumers')->where('subdivision_code', $subCode)->count();
                 $totalImported += $countForFile;
 
                 DB::table('import_log_subdivisions')->updateOrInsert(
@@ -152,7 +146,7 @@ class LoadCsvData extends Command
 
                 // Index only newly loaded consumers in DB-friendly chunks
                 $batchSize = 5000;
-                Consumer::whereBetween('id', [$lastIdBefore + 1, $lastIdAfter])
+                Consumer::where('subdivision_code', $subCode)
                     ->chunkById($batchSize, function ($batch) use ($client, $subCode, &$totalIndexed) {
                         $bulkParams = ['body' => []];
                         foreach ($batch as $consumer) {

@@ -1,5 +1,17 @@
 $(document).ready(function () {
 
+    function getImportModal() {
+        var modalEl = document.getElementById('importConsumersModal');
+        if (!modalEl) return null;
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            return bootstrap.Modal.getOrCreateInstance(modalEl, {
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+        return null;
+    }
+
     $('#btnImportConsumers').on('click', function () {
         $('#importConsumersForm')[0].reset();
         $('.progress').hide();
@@ -8,18 +20,22 @@ $(document).ready(function () {
         $('#importSummary').addClass('d-none');
         $('#cancelImport').prop('disabled', false);
 
-        $('#importConsumersModal').modal({
-            backdrop: 'static',
-            keyboard: false
-        }).modal('show');
+        var modal = getImportModal();
+        if (modal) {
+            modal.show();
+        } else if ($.fn.modal) {
+            $('#importConsumersModal').modal('show');
+        }
     });
 
-    $('#cancelImport').on('click', function () {
+    $(document).on('click', '#cancelImport, #modalCloseX', function () {
         $('#importLogContent').text('');
-        $('#importConsumersModal').modal({
-            backdrop: 'static',
-            keyboard: false
-        }).modal('hide');
+        var modal = getImportModal();
+        if (modal) {
+            modal.hide();
+        } else if ($.fn.modal) {
+            $('#importConsumersModal').modal('hide');
+        }
     });
 
     $('#importConsumersForm').on('submit', function (e) {
