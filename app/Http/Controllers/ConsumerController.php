@@ -65,46 +65,26 @@ class ConsumerController extends Controller
 
     public function index(Request $request)
     {
-        $page = max(1, (int) $request->get('page', 1));
         $perPage = 10;
-        $offset = ($page - 1) * $perPage;
-
-        // Specific columns needed for the view - avoids loading 70+ unused columns for 40M rows
         $columns = ['id', 'name', 'contactno', 'reference_no', 'occupant_nicno'];
 
-        // Optimized query: ordered by indexed primary key, fetching only 10 records
-        if ($offset > 1000) {
-            // Deferred join optimization for deeper page offsets
-            $consumersItems = Consumer::select($columns)
-                ->join(DB::raw("(SELECT id AS sub_id FROM consumers ORDER BY id ASC LIMIT {$perPage} OFFSET {$offset}) AS sub"), 'consumers.id', '=', 'sub.sub_id')
-                ->orderBy('consumers.id', 'asc')
-                ->get();
-        } else {
-            $consumersItems = Consumer::select($columns)
-                ->orderBy('id', 'asc')
-                ->offset($offset)
-                ->limit($perPage)
-                ->get();
-        }
+        // Fast & optimized: queries only consumers table, ordered by primary key, no slow COUNT(*) per page
+        $consumers = Consumer::select($columns)
+            ->orderBy('id', 'asc')
+            ->simplePaginate($perPage)
+            ->withQueryString();
 
-        // Total count directly from consumers table (cached for 1 hour to keep pagination instant on 40M records)
-        $total = Cache::remember('consumers_total_count', 3600, function () {
-            return (int) DB::table('consumers')->count();
+        // Total count cached (refreshed periodically, no slow COUNT(*) per request on 40M rows)
+        $totalConsumers = Cache::remember('consumers_total_count', 3600, function () {
+            try {
+                return (int) Consumer::count();
+            } catch (\Throwable $e) {
+                Log::warning("Error counting consumers: " . $e->getMessage());
+                return 0;
+            }
         });
 
-        // Create LengthAwarePaginator for 10 records per page
-        $consumers = new LengthAwarePaginator(
-            $consumersItems,
-            $total,
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
-
-        return view('consumers.index', compact('consumers'));
+        return view('consumers.index', compact('consumers', 'totalConsumers'));
     }
     public function searchPage(Request $request)
     {   

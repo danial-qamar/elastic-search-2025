@@ -8,14 +8,14 @@
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
         <div>
             <h2 class="mb-1 fw-bold text-dark fs-3">Consumers Directory</h2>
-            <p class="text-muted small mb-0">Browse and manage registered consumers (10 records per page)</p>
+            <p class="text-muted small mb-0">Browse and manage registered consumers &bull; Total: <strong class="text-dark">{{ number_format($totalConsumers) }}</strong></p>
         </div>
-        <div class="d-flex flex-wrap gap-2 w-100 w-sm-auto">
-            <a href="{{ route('consumers.create') }}" class="btn btn-primary flex-fill flex-sm-grow-0">
-                <i class="bi bi-person-plus-fill"></i> Add New Consumer
+        <div class="d-flex flex-wrap gap-2 ms-sm-4">
+            <a href="{{ route('consumers.create') }}" class="btn btn-primary text-nowrap">
+                <i class="bi bi-person-plus-fill me-1"></i> Add New Consumer
             </a>
-            <button type="button" id="btnImportConsumers" class="btn btn-amber flex-fill flex-sm-grow-0">
-                <i class="bi bi-cloud-arrow-up-fill"></i> Import Consumers
+            <button type="button" id="btnImportConsumers" class="btn btn-amber text-nowrap">
+                <i class="bi bi-cloud-arrow-up-fill me-1"></i> Import Consumers
             </button>
         </div>
     </div>   
@@ -35,10 +35,8 @@
                 <h4 class="mb-0 text-dark">All Consumers</h4>
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if (method_exists($consumers, 'total'))
-                    <span class="badge-violet">Total: {{ number_format($consumers->total()) }}</span>
-                @endif
-                <span class="badge-amber">Page {{ $consumers->currentPage() }}</span>
+                <span class="badge-violet"><i class="bi bi-people-fill me-1"></i> Total: {{ number_format($totalConsumers) }}</span>
+                <span class="badge-amber"><i class="bi bi-file-earmark-text me-1"></i> Page {{ $consumers->currentPage() }}</span>
             </div>
         </div>
         <div class="card-body p-0">
@@ -53,63 +51,46 @@
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @forelse ($consumers as $consumer)
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <div class="stat-icon violet" style="width: 32px; height: 32px; font-size: 14px; border-radius: 50%;">
-                                            <i class="bi bi-person"></i>
-                                        </div>
-                                        <span class="fw-semibold text-dark">{{ $consumer->name ?: '—' }}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="font-mono text-secondary">{{ $consumer->contactno ?: '—' }}</span>
-                                </td>
-                                <td>
-                                    <span class="code-ref badge-violet px-2 py-1">{{ $consumer->reference_no ?: '—' }}</span>
-                                </td>
-                                <td>
-                                    <span class="font-mono text-secondary">{{ $consumer->occupant_nicno ?: '—' }}</span>
-                                </td>
-                                <td class="text-end">
-                                    <div class="d-inline-flex gap-2">
-                                        <a href="{{ route('consumers.edit', $consumer->id) }}" class="btn btn-warning btn-sm" title="Edit Consumer">
-                                            <i class="bi bi-pencil-square"></i> Edit
-                                        </a>
-                                        <form action="{{ route('consumers.destroy', $consumer->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this consumer?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-sm" title="Delete Consumer">
-                                                <i class="bi bi-trash3-fill"></i> Delete
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="text-center py-5">
-                                    <div class="py-4">
-                                        <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
-                                        <h5 class="text-dark fw-bold mb-1">No Consumers Found</h5>
-                                        <p class="text-muted small">No consumer records exist in the database or match this page.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
+                    <tbody id="consumersTableBody">
+                        @include('consumers.partials.rows', ['consumers' => $consumers])
                     </tbody>
                 </table>
             </div>
 
-            <!-- Pagination Bar -->
-            <div class="d-flex justify-content-center p-3 border-top" style="border-color: var(--border-subtle) !important;">
-                @if (method_exists($consumers, 'total'))
-                    {{ $consumers->links('pagination::bootstrap-4') }}
-                @else
-                    {{ $consumers->links('pagination::simple-bootstrap-4') }}
-                @endif
+            <!-- Clean Navigation Bar (Previous Page | Current Page | Next Page) -->
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 p-3 border-top" style="border-color: var(--border-subtle) !important;">
+                <!-- Previous Page Button -->
+                <div>
+                    @if ($consumers->onFirstPage())
+                        <button class="btn btn-secondary btn-sm" disabled>
+                            <i class="bi bi-chevron-left"></i> Previous Page
+                        </button>
+                    @else
+                        <a href="{{ $consumers->previousPageUrl() }}" class="btn btn-secondary btn-sm" id="btnPrevPage">
+                            <i class="bi bi-chevron-left"></i> Previous Page
+                        </a>
+                    @endif
+                </div>
+
+                <!-- Center: Current Page Indicator -->
+                <div class="text-center">
+                    <span class="badge-amber px-3 py-2 fw-semibold fs-6">
+                        <i class="bi bi-file-earmark-text me-1"></i> Page {{ $consumers->currentPage() }}
+                    </span>
+                </div>
+
+                <!-- Next Page Button -->
+                <div>
+                    @if ($consumers->hasMorePages())
+                        <a href="{{ $consumers->nextPageUrl() }}" class="btn btn-primary btn-sm" id="btnNextPage">
+                            Next Page <i class="bi bi-chevron-right"></i>
+                        </a>
+                    @else
+                        <button class="btn btn-secondary btn-sm" disabled>
+                            Next Page <i class="bi bi-chevron-right"></i>
+                        </button>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -117,7 +98,7 @@
 @endsection
 
 @push('modals')
-<!-- Import Consumers Modal - Rendered at root level of body -->
+<!-- Import Consumers Modal -->
 <div class="modal fade" id="importConsumersModal" tabindex="-1" aria-labelledby="importConsumersModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
