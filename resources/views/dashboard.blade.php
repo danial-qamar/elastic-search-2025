@@ -21,19 +21,29 @@
     </div>
 
     @php
-        $totalConsumers = $logs->sum('consumers_count');
-        $totalIndexed = $logs->sum('indexed_count');
-        $totalSubdivisions = $logs->sum('subdivisions_count');
+        $latestLog = $logs->first();
+        $latestConsumers = $latestLog->consumers_count ?? 0;
+        $latestIndexed = $latestLog->indexed_count ?? 0;
+        $latestSubdivisions = $latestLog->subdivisions_count ?? 0;
+        $latestMonth = '—';
+        if ($latestLog && !empty($latestLog->bill_month)) {
+            try {
+                $latestMonth = \Carbon\Carbon::createFromFormat('Ym', $latestLog->bill_month)->format('M Y');
+            } catch (\Throwable $e) {
+                $latestMonth = $latestLog->bill_month;
+            }
+        }
         $totalBatches = $logs->count();
     @endphp
 
-    <!-- Metric Stat Cards -->
+    <!-- Metric Stat Cards (Latest Batch Metrics) -->
     <div class="row g-3 mb-4">
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div>
-                    <div class="stat-title">Total Processed</div>
-                    <div class="stat-number text-dark">{{ number_format($totalConsumers) }}</div>
+                    <div class="stat-title">Processed (Latest)</div>
+                    <div class="stat-number text-dark">{{ number_format($latestConsumers) }}</div>
+                    <div class="small text-muted font-mono mt-1" style="font-size: 11px;">Month: {{ $latestMonth }}</div>
                 </div>
                 <div class="stat-icon violet">
                     <i class="bi bi-people"></i>
@@ -43,8 +53,9 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div>
-                    <div class="stat-title">Indexed Documents</div>
-                    <div class="stat-number text-dark">{{ number_format($totalIndexed) }}</div>
+                    <div class="stat-title">Indexed (Latest)</div>
+                    <div class="stat-number text-dark">{{ number_format($latestIndexed) }}</div>
+                    <div class="small text-muted font-mono mt-1" style="font-size: 11px;">Search Synced</div>
                 </div>
                 <div class="stat-icon amber">
                     <i class="bi bi-database-check"></i>
@@ -54,8 +65,9 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div>
-                    <div class="stat-title">Subdivisions</div>
-                    <div class="stat-number text-dark">{{ number_format($totalSubdivisions) }}</div>
+                    <div class="stat-title">Subdivisions (Latest)</div>
+                    <div class="stat-number text-dark">{{ number_format($latestSubdivisions) }}</div>
+                    <div class="small text-muted font-mono mt-1" style="font-size: 11px;">Active Codes</div>
                 </div>
                 <div class="stat-icon violet">
                     <i class="bi bi-diagram-3"></i>
@@ -65,8 +77,9 @@
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="stat-card">
                 <div>
-                    <div class="stat-title">Import Batches</div>
-                    <div class="stat-number text-dark">{{ number_format($totalBatches) }}</div>
+                    <div class="stat-title">Latest Batch</div>
+                    <div class="stat-number text-dark" style="font-size: 20px;">{{ $latestMonth }}</div>
+                    <div class="small text-muted font-mono mt-1" style="font-size: 11px;">Total Batches: {{ $totalBatches }}</div>
                 </div>
                 <div class="stat-icon rose">
                     <i class="bi bi-journal-text"></i>

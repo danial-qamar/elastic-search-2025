@@ -87,35 +87,9 @@ class ConsumerController extends Controller
                 ->get();
         }
 
-        // Fast count: avoids running a slow full-table COUNT(*) on 40M rows in MySQL InnoDB
+        // Total count directly from consumers table (cached for 1 hour to keep pagination instant on 40M records)
         $total = Cache::remember('consumers_total_count', 3600, function () {
-            try {
-                $dbName = config('database.connections.mysql.database');
-                $result = DB::selectOne("
-                    SELECT TABLE_ROWS 
-                    FROM information_schema.TABLES 
-                    WHERE TABLE_SCHEMA = ? 
-                      AND TABLE_NAME = 'consumers'
-                ", [$dbName]);
-
-                if ($result && (int) $result->TABLE_ROWS > 0) {
-                    return (int) $result->TABLE_ROWS;
-                }
-            } catch (\Throwable $e) {
-                Log::warning("Could not read TABLE_ROWS: " . $e->getMessage());
-            }
-
-            try {
-                // Instant O(1) index lookup on primary key
-                $maxId = DB::table('consumers')->max('id');
-                if ($maxId) {
-                    return (int) $maxId;
-                }
-            } catch (\Throwable $e) {
-                Log::warning("Could not read max id: " . $e->getMessage());
-            }
-
-            return 40000000;
+            return (int) DB::table('consumers')->count();
         });
 
         // Create LengthAwarePaginator for 10 records per page
