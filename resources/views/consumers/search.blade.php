@@ -101,11 +101,11 @@
                         <tbody>
                             @forelse ($searchResults as $consumer)
                                 @php
-                                    $id = isset($consumer['_source']) ? ($consumer['_source']['id'] ?? $consumer['_id'] ?? null) : $consumer->id;
-                                    $name = isset($consumer['_source']) ? ($consumer['_source']['name'] ?? '') : $consumer->name;
-                                    $contact = isset($consumer['_source']) ? ($consumer['_source']['contactno'] ?? '') : $consumer->contactno;
-                                    $refNo = isset($consumer['_source']) ? ($consumer['_source']['reference_no'] ?? '') : $consumer->reference_no;
-                                    $cnic = isset($consumer['_source']) ? ($consumer['_source']['occupant_nicno'] ?? '') : $consumer->occupant_nicno;
+                                    $id = $consumer['db_id'] ?? (isset($consumer['_source']) ? ($consumer['_source']['id'] ?? $consumer['_id'] ?? null) : ($consumer->id ?? null));
+                                    $name = isset($consumer['_source']) ? ($consumer['_source']['name'] ?? '') : ($consumer->name ?? '');
+                                    $contact = isset($consumer['_source']) ? ($consumer['_source']['contactno'] ?? '') : ($consumer->contactno ?? '');
+                                    $refNo = isset($consumer['_source']) ? ($consumer['_source']['reference_no'] ?? '') : ($consumer->reference_no ?? '');
+                                    $cnic = isset($consumer['_source']) ? ($consumer['_source']['occupant_nicno'] ?? '') : ($consumer->occupant_nicno ?? '');
                                 @endphp
                                 <tr>
                                     <td>

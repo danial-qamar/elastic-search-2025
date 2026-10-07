@@ -144,11 +144,111 @@ class ConsumerController extends Controller
             $searchResults = $response['hits']['hits'];
     
             $totalPages = ceil($total / $perPage);
+
+            $searchResults = $this->attachDatabaseIds($searchResults);
     
             return [$searchResults, $total, $totalPages];
         } catch (\Exception $e) {
             return [[], 0, 0];
         }
+    }
+
+    /**
+     * Map Elasticsearch search results to canonical MySQL database IDs using reference_no & bill_month.
+     */
+    private function attachDatabaseIds(array $hits): array
+    {
+        $refNumbers = collect($hits)
+            ->map(function ($item) {
+                if (isset($item['_source']['reference_no'])) {
+                    return $item['_source']['reference_no'];
+                }
+                if (is_array($item) && isset($item['reference_no'])) {
+                    return $item['reference_no'];
+                }
+                return null;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($refNumbers)) {
+            return $hits;
+        }
+
+        $dbConsumers = Consumer::whereIn('reference_no', $refNumbers)
+            ->select(['id', 'reference_no', 'bill_month'])
+            ->get();
+
+        $consumersByRef = [];
+        $consumersByRefAndMonth = [];
+
+        foreach ($dbConsumers as $dbConsumer) {
+            $consumersByRef[$dbConsumer->reference_no] = $dbConsumer->id;
+            if ($dbConsumer->bill_month) {
+                $consumersByRefAndMonth[$dbConsumer->reference_no . '_' . $dbConsumer->bill_month] = $dbConsumer->id;
+            }
+        }
+
+        foreach ($hits as &$hit) {
+            $ref = $hit['_source']['reference_no'] ?? ($hit['reference_no'] ?? null);
+            $month = $hit['_source']['bill_month'] ?? ($hit['bill_month'] ?? null);
+
+            $resolvedId = null;
+            if ($ref && $month && isset($consumersByRefAndMonth[$ref . '_' . $month])) {
+                $resolvedId = $consumersByRefAndMonth[$ref . '_' . $month];
+            } elseif ($ref && isset($consumersByRef[$ref])) {
+                $resolvedId = $consumersByRef[$ref];
+            }
+
+            if ($resolvedId) {
+                if (isset($hit['_source'])) {
+                    $hit['_source']['id'] = $resolvedId;
+                }
+                if (is_array($hit)) {
+                    $hit['db_id'] = $resolvedId;
+                    if (isset($hit['id']) || !isset($hit['_source'])) {
+                        $hit['id'] = $resolvedId;
+                    }
+                }
+            }
+        }
+        unset($hit);
+
+        return $hits;
+    }
+
+    /**
+     * Resiliently resolve consumer by database ID, reference_no, or Elasticsearch document ID.
+     */
+    private function resolveConsumer($id): Consumer
+    {
+        $consumer = Consumer::find($id);
+
+        if (!$consumer) {
+            $consumer = Consumer::where('reference_no', $id)->first();
+        }
+
+        if (!$consumer) {
+            try {
+                $doc = $this->client->get([
+                    'index' => 'consumers',
+                    'id'    => $id,
+                ]);
+                if (isset($doc['_source']['reference_no'])) {
+                    $consumer = Consumer::where('reference_no', $doc['_source']['reference_no'])->first();
+                }
+            } catch (\Exception $e) {
+                // Not found in Elasticsearch either
+            }
+        }
+
+        if (!$consumer) {
+            abort(404, 'Consumer not found');
+        }
+
+        return $consumer;
     }
 
 
@@ -220,7 +320,12 @@ class ConsumerController extends Controller
 
     public function edit($id)
     {
-        $consumer = Consumer::findOrFail($id);
+        $consumer = $this->resolveConsumer($id);
+
+        if ((string) $consumer->id !== (string) $id) {
+            return redirect()->route('consumers.edit', $consumer->id);
+        }
+
         $columns = [
             'reference_no', 'bill_month', 'name', 'fname', 'address_1', 'address_2', 'corporation_name', 'connection_date',
             'season_dode', 'season_age', 'fata_pata_code', 'it_exempt_code', 'extra_tax_exempt_code', 'meter_rent', 'service_rent',
@@ -240,7 +345,7 @@ class ConsumerController extends Controller
 
     public function update(Request $request, $id)
     {
-        $consumer = Consumer::findOrFail($id);
+        $consumer = $this->resolveConsumer($id);
         $data = $request->all();
         $refNo = $data['reference_no'];
         $data['subdivision_code'] = substr($refNo, 2, 5);
@@ -277,12 +382,19 @@ class ConsumerController extends Controller
             'index' => 'consumers',
             'id'    => $consumer->id,
             'body'  => [
-                'doc' => $consumer->toArray()
+                'doc'           => $consumer->toArray(),
+                'doc_as_upsert' => true,
             ],
         ];
 
         try {
             $this->client->update($params);
+
+            if ((string) $id !== (string) $consumer->id) {
+                try {
+                    $this->client->delete(['index' => 'consumers', 'id' => $id]);
+                } catch (\Exception $e) {}
+            }
         } catch (\Exception $e) {
             Log::error("Elasticsearch update error: " . $e->getMessage());
         }
@@ -292,16 +404,17 @@ class ConsumerController extends Controller
 
     public function destroy($id)
     {
-        $consumer = Consumer::findOrFail($id);
+        $consumer = $this->resolveConsumer($id);
 
         $billMonth = $consumer->bill_month;
         $subdivisionCode = $consumer->subdivision_code;
+        $canonicalId = $consumer->id;
 
         $consumer->delete();
 
         $params = [
             'index' => 'consumers',
-            'id'    => $id
+            'id'    => $canonicalId
         ];
 
         $deletedFromIndex = false;
@@ -310,6 +423,12 @@ class ConsumerController extends Controller
             $deletedFromIndex = true;
         } catch (\Exception $e) {
             Log::error("Elasticsearch delete error: " . $e->getMessage());
+        }
+
+        if ((string) $id !== (string) $canonicalId) {
+            try {
+                $this->client->delete(['index' => 'consumers', 'id' => $id]);
+            } catch (\Exception $e) {}
         }
 
         if ($importLog = ImportLog::where('bill_month', $billMonth)->first()) {
@@ -408,6 +527,7 @@ class ConsumerController extends Controller
             $response = $this->client->search($params);
 
             $results = array_map(fn($hit) => $hit['_source'], $response['hits']['hits']);
+            $results = $this->attachDatabaseIds($results);
 
             return response()->json([
                 'total' => $response['hits']['total']['value'],
@@ -474,8 +594,26 @@ class ConsumerController extends Controller
 
     public function consumerHistory($consumerId)
     {
+        $consumer = Consumer::find($consumerId);
+        if (!$consumer) {
+            $consumer = Consumer::where('reference_no', $consumerId)->first();
+        }
+        if (!$consumer) {
+            try {
+                $doc = $this->client->get([
+                    'index' => 'consumers',
+                    'id'    => $consumerId,
+                ]);
+                if (isset($doc['_source']['reference_no'])) {
+                    $consumer = Consumer::where('reference_no', $doc['_source']['reference_no'])->first();
+                }
+            } catch (\Exception $e) {}
+        }
+
+        $canonicalId = $consumer ? $consumer->id : $consumerId;
+
         $histories = ConsumerHistory::with(['consumer', 'user'])
-            ->where('consumer_id', $consumerId)
+            ->where('consumer_id', $canonicalId)
             ->latest()
             ->paginate(20);
 
